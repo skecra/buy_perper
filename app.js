@@ -1,4 +1,6 @@
-const TOKEN_ADDRESS = "0x46B9816b6089C26b2D8e9C784fE9381781b18bAc";
+// -------------------- KONFIGURACIJA --------------------
+
+const TOKEN_ADDRESS = "0xf412de660d3914E2E5CdB5A476E35d291150C88D";
 
 const TOKEN_ABI = [
   {
@@ -34,31 +36,69 @@ const TOKEN_ABI = [
     "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "tokenPrice",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
+// -------------------- GLOBALNE PROMJENLJIVE --------------------
 
-// Token price u WEI (isto kao u smart contractu)
-const TOKEN_PRICE_ETH = 0.01; // 1 PRP = 0.01 ETH
+let provider, signer, contract, userAddress;
+let tokenPriceEth = 0; // cijena tokena u ETH za preračunavanje
 
+// Input polja sa frontenda
 const buyPRPInput = document.getElementById("buy-amount");
 const buyETHInput = document.getElementById("buy-eth");
 
-// Kada korisnik unese PRP, izračunaj ETH
-buyPRPInput.addEventListener("input", () => {
-  const prpAmount = parseFloat(buyPRPInput.value) || 0;
-  const ethEquivalent = prpAmount * TOKEN_PRICE_ETH;
-  buyETHInput.value = ethEquivalent.toFixed(6); // prikazuje do 6 decimala
-});
+// -------------------- FUNKCIJE --------------------
 
-// Kada korisnik unese ETH, izračunaj PRP
-buyETHInput.addEventListener("input", () => {
-  const ethAmount = parseFloat(buyETHInput.value) || 0;
-  const prpEquivalent = ethAmount / TOKEN_PRICE_ETH;
-  buyPRPInput.value = prpEquivalent.toFixed(2); // prikazuje do 2 decimale
-});
+// Povezivanje sa MetaMask
+async function connectWallet() {
+  if (typeof window.ethereum !== "undefined") {
+    try {
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      signer = provider.getSigner();
+      userAddress = await signer.getAddress();
+      contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
-// Funkcija za kupovinu tokena
+      document.getElementById("wallet-address").innerText = "Wallet: " + userAddress;
+
+      await loadBalance();
+      await loadTokenPrice();
+      listenTransfers();
+
+    } catch (error) {
+      console.error(error);
+    }
+  } else {
+    alert("MetaMask nije instaliran!");
+  }
+}
+
+// Učitavanje balansa korisnika
+async function loadBalance() {
+  if (!contract || !userAddress) return;
+  const balance = await contract.balanceOf(userAddress);
+  const decimals = await contract.decimals();
+  const formatted = ethers.utils.formatUnits(balance, decimals);
+  document.getElementById("token-balance").innerText = `Balance: ${formatted} PPR`;
+}
+
+// Učitavanje cijene tokena iz ugovora
+async function loadTokenPrice() {
+  if (!contract) return;
+  const priceWei = await contract.tokenPrice();
+  tokenPriceEth = parseFloat(ethers.utils.formatEther(priceWei));
+  console.log("Token price:", tokenPriceEth, "ETH per PRP");
+}
+
+// Kupovina tokena
 async function buyTokens(event) {
   event.preventDefault();
 
@@ -87,41 +127,18 @@ async function buyTokens(event) {
   }
 }
 
-
-let provider, signer, contract, userAddress;
-
-async function connectWallet() {
-  if (window.ethereum) {
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      signer = provider.getSigner();
-      userAddress = await signer.getAddress();
-      contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-
-      document.getElementById("wallet-address").innerText = "Wallet: " + userAddress;
-      loadBalance();
-      listenTransfers();
-    } catch (error) {
-      console.error(error);
-    }
-  } else {
-    alert("MetaMask nije instaliran!");
-  }
-}
-
-async function loadBalance() {
-  if (!contract || !userAddress) return;
-  const balance = await contract.balanceOf(userAddress);
-  const decimals = await contract.decimals();
-  const formatted = ethers.utils.formatUnits(balance, decimals);
-  document.getElementById("token-balance").innerText = `Balance: ${formatted} PPR`;
-}
-
+// Transfer tokena
 async function transferTokens(event) {
   event.preventDefault();
+
+  if (!contract || !userAddress) {
+    alert("Please connect your wallet first!");
+    return;
+  }
+
   const recipient = document.getElementById("recipient").value;
   const amount = document.getElementById("amount").value;
+
   const decimals = await contract.decimals();
   const parsedAmount = ethers.utils.parseUnits(amount, decimals);
 
@@ -136,23 +153,7 @@ async function transferTokens(event) {
   }
 }
 
-async function buyTokens(event) {
-  event.preventDefault();
-  const ethAmount = document.getElementById("buy-eth").value;
-  try {
-    const tx = await signer.sendTransaction({
-      to: TOKEN_ADDRESS,
-      value: ethers.utils.parseEther(ethAmount)
-    });
-    await tx.wait();
-    alert(`Bought tokens with ${ethAmount} ETH`);
-    loadBalance();
-  } catch (error) {
-    console.error(error);
-    alert("Buy failed!");
-  }
-}
-
+// Slušanje Transfer eventova
 function listenTransfers() {
   contract.on("Transfer", (from, to, value, event) => {
     contract.decimals().then((decimals) => {
@@ -164,6 +165,24 @@ function listenTransfers() {
   });
 }
 
-// Bind forme na JS
+// -------------------- EVENT LISTENERI --------------------
+
+// Automatska konverzija PRP -> ETH
+buyPRPInput.addEventListener("input", () => {
+  const prpAmount = parseFloat(buyPRPInput.value) || 0;
+  if (tokenPriceEth > 0) {
+    buyETHInput.value = (prpAmount * tokenPriceEth).toFixed(6);
+  }
+});
+
+// Automatska konverzija ETH -> PRP
+buyETHInput.addEventListener("input", () => {
+  const ethAmount = parseFloat(buyETHInput.value) || 0;
+  if (tokenPriceEth > 0) {
+    buyPRPInput.value = (ethAmount / tokenPriceEth).toFixed(2);
+  }
+});
+
+// Povezivanje formi sa JS funkcijama
 document.getElementById("transfer-form").addEventListener("submit", transferTokens);
 document.getElementById("buy-form").addEventListener("submit", buyTokens);
