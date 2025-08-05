@@ -441,3 +441,17 @@ form input:focus {
   }
 
 }
+
+/* FIX: Clickable Connect Button */
+.container::before,
+.coin-container::after,
+.coin-glow,
+.coin-image {
+  pointer-events: none; /* dekoracija ne blokira klik */
+}
+
+.connect-button {
+  position: relative;
+  z-index: 99999;  /* iznad svega */
+  pointer-events: auto;
+}

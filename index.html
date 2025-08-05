@@ -45,7 +45,7 @@
 
 
 
-  <section class="token-actions">
+<section class="token-actions">
   <div class="tab-menu">
     <button class="tab-btn active" data-tab="buy">Buy</button>
     <button class="tab-btn" data-tab="transfer">Transfer</button>
@@ -57,11 +57,11 @@
     <!-- Buy Tab -->
     <div class="tab-panel active" id="buy">
       <h2>Buy Perper Tokens</h2>
-      <form>
+      <form id="buy-form">
         <label>Amount (PPR):</label>
-        <input type="number" placeholder="Enter amount">
+        <input type="number" id="buy-amount" placeholder="Enter amount">
         <label>Pay with (ETH):</label>
-        <input type="text" placeholder="Calculated total">
+        <input type="text" id="buy-eth" placeholder="Calculated total">
         <button type="submit">Buy Now</button>
       </form>
     </div>
@@ -69,11 +69,11 @@
     <!-- Transfer Tab -->
     <div class="tab-panel" id="transfer">
       <h2>Transfer Tokens</h2>
-      <form>
+      <form id="transfer-form">
         <label>Recipient Address:</label>
-        <input type="text" placeholder="0x...">
+        <input type="text" id="recipient" placeholder="0x...">
         <label>Amount (PPR):</label>
-        <input type="number" placeholder="Enter amount">
+        <input type="number" id="amount" placeholder="Enter amount">
         <button type="submit">Send</button>
       </form>
     </div>
@@ -81,16 +81,19 @@
     <!-- History Tab -->
     <div class="tab-panel" id="history">
       <h2>Transaction History</h2>
-      <p>No transactions yet.</p>
+      <ul id="history-list"></ul>
     </div>
 
     <!-- Wallet Tab -->
     <div class="tab-panel" id="wallet">
       <h2>Your Wallet</h2>
+      <p id="wallet-address">Wallet: Not connected</p>
       <p id="token-balance">Balance: 0 PPR</p>
+      <button class="connect-button" onclick="connectWallet()">Connect with Metamask</button>
     </div>
   </div>
 </section>
+
 
 <button onclick="">Poveži MetaMask</button>
 <p id="wallet-address">Wallet: N/A</p>

@@ -1,13 +1,6 @@
-// Adresa PRP token ugovora iz truffle migrate outputa
-const TOKEN_ADDRESS = "0xdFa9EE546D51A20740E12E0cdFa4f401aa849bc1"; // zamijeni ako je drugačije
+const TOKEN_ADDRESS = "0x46B9816b6089C26b2D8e9C784fE9381781b18bAc";
 
-// ABI PRP tokena (kopiraj iz build/contracts/Perper.json)
 const TOKEN_ABI = [
-  {
-    "inputs": [{"internalType": "uint256", "name": "_initialSupply", "type": "uint256"}],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
   {
     "anonymous": false,
     "inputs": [
@@ -37,20 +30,6 @@ const TOKEN_ABI = [
   },
   {
     "inputs": [],
-    "name": "name",
-    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "symbol",
-    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "decimals",
     "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
     "stateMutability": "view",
@@ -58,9 +37,59 @@ const TOKEN_ABI = [
   }
 ];
 
+
+// Token price u WEI (isto kao u smart contractu)
+const TOKEN_PRICE_ETH = 0.01; // 1 PRP = 0.01 ETH
+
+const buyPRPInput = document.getElementById("buy-amount");
+const buyETHInput = document.getElementById("buy-eth");
+
+// Kada korisnik unese PRP, izračunaj ETH
+buyPRPInput.addEventListener("input", () => {
+  const prpAmount = parseFloat(buyPRPInput.value) || 0;
+  const ethEquivalent = prpAmount * TOKEN_PRICE_ETH;
+  buyETHInput.value = ethEquivalent.toFixed(6); // prikazuje do 6 decimala
+});
+
+// Kada korisnik unese ETH, izračunaj PRP
+buyETHInput.addEventListener("input", () => {
+  const ethAmount = parseFloat(buyETHInput.value) || 0;
+  const prpEquivalent = ethAmount / TOKEN_PRICE_ETH;
+  buyPRPInput.value = prpEquivalent.toFixed(2); // prikazuje do 2 decimale
+});
+
+// Funkcija za kupovinu tokena
+async function buyTokens(event) {
+  event.preventDefault();
+
+  if (!signer || !userAddress) {
+    alert("Please connect your wallet first!");
+    return;
+  }
+
+  const ethAmount = parseFloat(buyETHInput.value);
+  if (isNaN(ethAmount) || ethAmount <= 0) {
+    alert("Please enter a valid ETH amount!");
+    return;
+  }
+
+  try {
+    const tx = await signer.sendTransaction({
+      to: TOKEN_ADDRESS,
+      value: ethers.utils.parseEther(ethAmount.toString())
+    });
+    await tx.wait();
+    alert(`Kupili ste ${buyPRPInput.value} PRP za ${ethAmount} ETH`);
+    loadBalance();
+  } catch (error) {
+    console.error(error);
+    alert("Buy failed!");
+  }
+}
+
+
 let provider, signer, contract, userAddress;
 
-// Funkcija za povezivanje sa MetaMask
 async function connectWallet() {
   if (window.ethereum) {
     try {
@@ -69,9 +98,10 @@ async function connectWallet() {
       signer = provider.getSigner();
       userAddress = await signer.getAddress();
       contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+
       document.getElementById("wallet-address").innerText = "Wallet: " + userAddress;
-      console.log("Povezan MetaMask nalog:", userAddress);
       loadBalance();
+      listenTransfers();
     } catch (error) {
       console.error(error);
     }
@@ -80,16 +110,16 @@ async function connectWallet() {
   }
 }
 
-// Učitaj PRP balans
 async function loadBalance() {
+  if (!contract || !userAddress) return;
   const balance = await contract.balanceOf(userAddress);
   const decimals = await contract.decimals();
   const formatted = ethers.utils.formatUnits(balance, decimals);
-  document.getElementById("token-balance").innerText = `Balans: ${formatted} PRP`;
+  document.getElementById("token-balance").innerText = `Balance: ${formatted} PPR`;
 }
 
-// Transfer PRP tokena
-async function transferTokens() {
+async function transferTokens(event) {
+  event.preventDefault();
   const recipient = document.getElementById("recipient").value;
   const amount = document.getElementById("amount").value;
   const decimals = await contract.decimals();
@@ -98,10 +128,42 @@ async function transferTokens() {
   try {
     const tx = await contract.transfer(recipient, parsedAmount);
     await tx.wait();
-    alert(`Uspješno poslano ${amount} PRP na ${recipient}`);
+    alert(`Sent ${amount} PPR to ${recipient}`);
     loadBalance();
   } catch (error) {
     console.error(error);
-    alert("Greška prilikom slanja tokena!");
+    alert("Transfer failed!");
   }
 }
+
+async function buyTokens(event) {
+  event.preventDefault();
+  const ethAmount = document.getElementById("buy-eth").value;
+  try {
+    const tx = await signer.sendTransaction({
+      to: TOKEN_ADDRESS,
+      value: ethers.utils.parseEther(ethAmount)
+    });
+    await tx.wait();
+    alert(`Bought tokens with ${ethAmount} ETH`);
+    loadBalance();
+  } catch (error) {
+    console.error(error);
+    alert("Buy failed!");
+  }
+}
+
+function listenTransfers() {
+  contract.on("Transfer", (from, to, value, event) => {
+    contract.decimals().then((decimals) => {
+      const amount = ethers.utils.formatUnits(value, decimals);
+      const li = document.createElement("li");
+      li.innerText = `From: ${from} -> To: ${to} | Amount: ${amount} PPR | Tx: ${event.transactionHash}`;
+      document.getElementById("history-list").prepend(li);
+    });
+  });
+}
+
+// Bind forme na JS
+document.getElementById("transfer-form").addEventListener("submit", transferTokens);
+document.getElementById("buy-form").addEventListener("submit", buyTokens);
