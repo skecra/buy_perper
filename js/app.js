@@ -1,6 +1,8 @@
 // -------------------- KONFIGURACIJA --------------------
 
 const TOKEN_ADDRESS = "0xf412de660d3914E2E5CdB5A476E35d291150C88D";
+const TOKEN_SYMBOL = "PRP";
+const TOKEN_IMAGE_URL = "https://gateway.pinata.cloud/ipfs/bafybeiayu4mujnlkwmajyo2xh2cpgpizapajatsk6jl7yx6wnk642ltnxi";
 
 const TOKEN_ABI = [
   {
@@ -43,13 +45,21 @@ const TOKEN_ABI = [
     "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  // Funkcija za kupovinu tokena
+  {
+    "inputs": [],
+    "name": "buyTokens",
+    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "payable",
+    "type": "function"
   }
 ];
 
 // -------------------- GLOBALNE PROMJENLJIVE --------------------
 
 let provider, signer, contract, userAddress;
-let tokenPriceEth = 0; // cijena tokena u ETH za preračunavanje
+let tokenPriceEth = 0;
 
 // Input polja sa frontenda
 const buyPRPInput = document.getElementById("buy-amount");
@@ -71,13 +81,76 @@ async function connectWallet() {
 
       await loadBalance();
       await loadTokenPrice();
+      await addTokenToMetaMask(userAddress);
+
       listenTransfers();
 
+      if (window.ethereum?.on) {
+        window.ethereum.on("accountsChanged", async (accounts) => {
+          try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            userAddress = await signer.getAddress();
+            document.getElementById("wallet-address").innerText = "Wallet: " + userAddress;
+            await loadBalance();
+            await addTokenToMetaMask(userAddress);
+          } catch (e) { console.error(e); }
+        });
+        window.ethereum.on("chainChanged", async () => {
+          try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+            await loadBalance();
+            await addTokenToMetaMask(userAddress);
+          } catch (e) { console.error(e); }
+        });
+      }
     } catch (error) {
       console.error(error);
     }
   } else {
     alert("MetaMask nije instaliran!");
+  }
+}
+
+// Dodavanje tokena u MetaMask po nalogu
+async function addTokenToMetaMask(account) {
+  try {
+    if (!window.ethereum || !contract) return;
+    if (!account) return;
+
+    const storageKey = `imported_${account.toLowerCase()}`;
+    const importedTokens = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+    if (importedTokens.includes(TOKEN_ADDRESS.toLowerCase())) {
+      console.log(`Token već dodat za nalog ${account}`);
+      return;
+    }
+
+    const decimals = await contract.decimals();
+    const wasAdded = await window.ethereum.request({
+      method: "wallet_watchAsset",
+      params: {
+        type: "ERC20",
+        options: {
+          address: TOKEN_ADDRESS,
+          symbol: TOKEN_SYMBOL,
+          decimals: Number(decimals),
+          image: TOKEN_IMAGE_URL
+        }
+      }
+    });
+
+    if (wasAdded) {
+      console.log(`Token dodat u MetaMask za nalog ${account}`);
+      importedTokens.push(TOKEN_ADDRESS.toLowerCase());
+      localStorage.setItem(storageKey, JSON.stringify(importedTokens));
+    } else {
+      console.log(`Korisnik odbio dodavanje tokena za nalog ${account}`);
+    }
+  } catch (err) {
+    console.error("Greška pri dodavanju tokena u MetaMask:", err);
   }
 }
 
@@ -87,7 +160,7 @@ async function loadBalance() {
   const balance = await contract.balanceOf(userAddress);
   const decimals = await contract.decimals();
   const formatted = ethers.utils.formatUnits(balance, decimals);
-  document.getElementById("token-balance").innerText = `Balance: ${formatted} PPR`;
+  document.getElementById("token-balance").innerText = `Balance: ${formatted} PRP`;
 }
 
 // Učitavanje cijene tokena iz ugovora
@@ -98,7 +171,7 @@ async function loadTokenPrice() {
   console.log("Token price:", tokenPriceEth, "ETH per PRP");
 }
 
-// Kupovina tokena
+// Kupovina tokena preko funkcije buyTokens
 async function buyTokens(event) {
   event.preventDefault();
 
@@ -114,10 +187,12 @@ async function buyTokens(event) {
   }
 
   try {
-    const tx = await signer.sendTransaction({
-      to: TOKEN_ADDRESS,
+    await addTokenToMetaMask(userAddress);
+
+    const tx = await contract.buyTokens({
       value: ethers.utils.parseEther(ethAmount.toString())
     });
+
     await tx.wait();
     alert(`Kupili ste ${buyPRPInput.value} PRP za ${ethAmount} ETH`);
     loadBalance();
@@ -145,7 +220,7 @@ async function transferTokens(event) {
   try {
     const tx = await contract.transfer(recipient, parsedAmount);
     await tx.wait();
-    alert(`Sent ${amount} PPR to ${recipient}`);
+    alert(`Sent ${amount} PRP to ${recipient}`);
     loadBalance();
   } catch (error) {
     console.error(error);
@@ -155,11 +230,12 @@ async function transferTokens(event) {
 
 // Slušanje Transfer eventova
 function listenTransfers() {
+  if (!contract) return;
   contract.on("Transfer", (from, to, value, event) => {
     contract.decimals().then((decimals) => {
       const amount = ethers.utils.formatUnits(value, decimals);
       const li = document.createElement("li");
-      li.innerText = `From: ${from} -> To: ${to} | Amount: ${amount} PPR | Tx: ${event.transactionHash}`;
+      li.innerText = `From: ${from} -> To: ${to} | Amount: ${amount} PRP | Tx: ${event.transactionHash}`;
       document.getElementById("history-list").prepend(li);
     });
   });

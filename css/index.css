@@ -12,7 +12,7 @@ body {
               radial-gradient(circle at 70% 70%, rgba(255, 0, 0, 0.2) 0%, transparent 50%),
               #0d0d0d;
   color: #fff;
-  background-image: url(background.png);
+  background-image: url('../images/background.jpg');
   
 }
 
