@@ -12,7 +12,7 @@ body {
               radial-gradient(circle at 70% 70%, rgba(255, 0, 0, 0.2) 0%, transparent 50%),
               #0d0d0d;
   color: #fff;
-  background-image: url('../images/background.jpg');
+  background-image: url('../assets/images/background.png')
   
 }
 
@@ -454,4 +454,26 @@ form input:focus {
   position: relative;
   z-index: 99999;  /* iznad svega */
   pointer-events: auto;
+}
+
+.progress-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.progress-step {
+  padding: 10px 20px;
+  margin: 0 5px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.progress-step.active {
+  background: #ff6600;
+  border-color: #ff6600;
 }
