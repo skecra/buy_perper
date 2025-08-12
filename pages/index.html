@@ -42,52 +42,85 @@
 </div>
 
 
-
 <section class="token-actions">
-  <div class="tab-menu">
-    <button class="tab-btn active" data-tab="buy">Buy</button>
-    <button class="tab-btn" data-tab="transfer">Transfer</button>
-    <button class="tab-btn" data-tab="history">History</button>
-    <button class="tab-btn" data-tab="wallet">Wallet</button>
-  </div>
+  <!-- GLASS CARD (tabs inside) -->
+  <div class="glass-card">
 
-  <div class="tab-content">
-    <!-- Buy Tab -->
-    <div class="tab-panel active" id="buy">
-      <h2>Buy Perper Tokens</h2>
-      <form id="buy-form">
-        <label>Amount (PPR):</label>
-        <input type="number" id="buy-amount" placeholder="Enter amount">
-        <label>Pay with (ETH):</label>
-        <input type="text" id="buy-eth" placeholder="Calculated total">
-        <button type="submit">Buy Now</button>
-      </form>
+    <!-- CARD TABS (Buy Perper / Buy Domain) -->
+    <div class="card-tabs">
+      <button id="tabPerper" class="card-tab active" data-target="perper">Buy Perper</button>
+      <button id="tabDomain" class="card-tab" data-target="domain">Buy Domain</button>
+      <span class="card-tab-indicator" id="tabIndicator"></span>
     </div>
 
-    <!-- Transfer Tab -->
-    <div class="tab-panel" id="transfer">
-      <h2>Transfer Tokens</h2>
-      <form id="transfer-form">
-        <label>Recipient Address:</label>
-        <input type="text" id="recipient" placeholder="0x...">
-        <label>Amount (PPR):</label>
-        <input type="number" id="amount" placeholder="Enter amount">
-        <button type="submit">Send</button>
-      </form>
-    </div>
+    <!-- 3D FLIP WRAPPER -->
+    <div class="card-3d" id="flipCard">
 
-    <!-- History Tab -->
-    <div class="tab-panel" id="history">
-      <h2>Transaction History</h2>
-      <ul id="history-list"></ul>
-    </div>
+      <!-- FRONT: Perper sadržaj -->
+      <div class="card-face card-front">
 
-    <!-- Wallet Tab -->
-    <div class="tab-panel" id="wallet">
-      <h2>Your Wallet</h2>
-      <p id="wallet-address">Wallet: Not connected</p>
-      <p id="token-balance">Balance: 0 PPR</p>
-      <button class="connect-button" onclick="connectWallet()">Connect with Metamask</button>
+        <div class="tab-menu">
+          <button class="tab-btn active" data-tab="buy">Buy</button>
+          <button class="tab-btn" data-tab="transfer">Transfer</button>
+          <button class="tab-btn" data-tab="history">History</button>
+          <button class="tab-btn" data-tab="wallet">Wallet</button>
+        </div>
+
+        <div class="tab-content">
+          <!-- Buy Tab -->
+          <div class="tab-panel active" id="buy">
+            <h2>Buy Perper Tokens</h2>
+            <form id="buy-form">
+              <label>Amount (PPR):</label>
+              <input type="number" id="buy-amount" placeholder="Enter amount">
+              <label>Pay with (ETH):</label>
+              <input type="text" id="buy-eth" placeholder="Calculated total">
+              <button type="submit">Buy Now</button>
+            </form>
+          </div>
+
+          <!-- Transfer Tab -->
+          <div class="tab-panel" id="transfer">
+            <h2>Transfer Tokens</h2>
+            <form id="transfer-form">
+              <label>Recipient Address:</label>
+              <input type="text" id="recipient" placeholder="0x...">
+              <label>Amount (PPR):</label>
+              <input type="number" id="amount" placeholder="Enter amount">
+              <button type="submit">Send</button>
+            </form>
+          </div>
+
+          <!-- History Tab -->
+          <div class="tab-panel" id="history">
+            <h2>Transaction History</h2>
+            <ul id="history-list"></ul>
+          </div>
+
+          <!-- Wallet Tab -->
+          <div class="tab-panel" id="wallet">
+            <h2>Your Wallet</h2>
+            <p id="wallet-address">Wallet: Not connected</p>
+            <p id="token-balance">Balance: 0 PPR</p>
+            <button class="connect-button" onclick="connectWallet()">Connect with Metamask</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BACK: forma za kupovinu domena -->
+      <div class="card-face card-back">
+        <h2>Register Domain</h2>
+        <form id="domain-form">
+          <label>Domain name:</label>
+          <input type="text" id="domain-name" placeholder="example.perper">
+          <label>Pay with (PRP):</label>
+          <input type="text" id="domain-price" placeholder="Calculated total" disabled>
+          <button type="submit">Register</button>
+        </form>
+        <p class="hint">You need PRP tokens to register a domain.</p>
+      </div>
+
     </div>
   </div>
 </section>

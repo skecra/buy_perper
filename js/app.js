@@ -262,3 +262,72 @@ buyETHInput.addEventListener("input", () => {
 // Povezivanje formi sa JS funkcijama
 document.getElementById("transfer-form").addEventListener("submit", transferTokens);
 document.getElementById("buy-form").addEventListener("submit", buyTokens);
+
+
+  // --- Flip logika: Buy Perper / Buy Domain ---
+  const flipCard = document.getElementById('flipCard');
+  const glassCard = document.querySelector('.glass-card');
+  const tabPerper = document.getElementById('tabPerper');
+  const tabDomain = document.getElementById('tabDomain');
+  const tabIndicator = document.getElementById('tabIndicator');
+
+  // inicijalni položaj indikatora (ispod "Buy Perper")
+  function positionIndicator() {
+    const active = document.querySelector('.card-tab.active');
+    if (!active) return;
+    const parentRect = document.querySelector('.card-tabs').getBoundingClientRect();
+    const btnRect = active.getBoundingClientRect();
+    const dx = btnRect.left - parentRect.left;
+    tabIndicator.style.width = btnRect.width + 'px';
+    tabIndicator.style.transform = `translateX(${dx}px)`;
+  }
+  window.addEventListener('load', positionIndicator);
+  window.addEventListener('resize', positionIndicator);
+
+  function activate(target) {
+    // active tab stil + indikator
+    [tabPerper, tabDomain].forEach(b => b.classList.remove('active'));
+    if (target === 'perper') {
+      tabPerper.classList.add('active');
+      glassCard.classList.remove('is-domain');
+    } else {
+      tabDomain.classList.add('active');
+      glassCard.classList.add('is-domain');
+    }
+    positionIndicator();
+  }
+
+  tabPerper.addEventListener('click', () => activate('perper'));
+  tabDomain.addEventListener('click', () => activate('domain'));
+
+  const tabsWrap    = document.querySelector('.card-tabs');
+  
+
+  function positionIndicator() {
+    const active = document.querySelector('.card-tab.active');
+    if (!active || !tabsWrap) return;
+
+    const tabsRect = tabsWrap.getBoundingClientRect();
+    const btnRect  = active.getBoundingClientRect();
+    const dx = btnRect.left - tabsRect.left - 10;
+
+    tabIndicator.style.width = btnRect.width + 'px';
+    tabIndicator.style.transform = `translateX(${dx}px)`;
+  }
+
+  function activate(target) {
+    [tabPerper, tabDomain].forEach(b => b.classList.remove('active'));
+    if (target === 'perper') {
+      tabPerper.classList.add('active');
+      glassCard.classList.remove('is-domain');
+    } else {
+      tabDomain.classList.add('active');
+      glassCard.classList.add('is-domain');
+    }
+    positionIndicator();
+  }
+
+  tabPerper.addEventListener('click', () => activate('perper'));
+  tabDomain.addEventListener('click', () => activate('domain'));
+  window.addEventListener('load', positionIndicator);
+  window.addEventListener('resize', positionIndicator);
