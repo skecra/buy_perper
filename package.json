@@ -1,0 +1,26 @@
+{
+  "name": "buy_perper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skecra/buy_perper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/skecra/buy_perper/issues"
+  },
+  "homepage": "https://github.com/skecra/buy_perper#readme",
+  "devDependencies": {
+    "esbuild": "^0.23.1"
+  },
+  "dependencies": {
+    "ipfs-car": "^3.0.0"
+  },
+  "description": ""
+}
