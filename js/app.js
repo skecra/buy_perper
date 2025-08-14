@@ -3,54 +3,65 @@ const TOKEN_ADDRESS   = "0xf412de660d3914E2E5CdB5A476E35d291150C88D"; // PRP
 const TOKEN_SYMBOL    = "PRP";
 const TOKEN_IMAGE_URL = "https://gateway.pinata.cloud/ipfs/bafybeiayu4mujnlkwmajyo2xh2cpgpizapajatsk6jl7yx6wnk642ltnxi";
 
-// --- Pinata config (Scoped JWT sa dozvolom: pinFileToIPFS, data:pinList, pinning:unpin) ---
-const PINATA_JWT = "PASTE_SCOPED_JWT_HERE";
+// --- Pinata config (Scoped JWT: pinFileToIPFS, data:pinList, pinning:unpin) ---
+const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiIxOTdmOGNkZi1lZWI3LTRiMmMtODI1MC1mN2NlZTZiZmU2OTEiLCJlbWFpbCI6Imx1a2FyYWR1bG92aWMxOTk4QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJjOGVhZDhlZWZiOTgyYjNhMjYzMyIsInNjb3BlZEtleVNlY3JldCI6IjNlMjk0MmVhZTZmZWMyZmYxYzE4NDRkYzY4NjdmZWJjMDIyNzkwMmIxNDZlMjA0NWMxNzNiZDgwYjM3N2UwY2QiLCJleHAiOjE3ODY2NDYyNDN9.Oo02AwpOKs-fzvYn6So4r_gTk7dL12Qy8yuM6t7fVQg";
 const PINATA_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
 
-// ====== Domain Registry (cijena + kupovina) ======
-const REGISTRY_ADDRESS = "0x286A49eF10bA8577833f4f8967F8c6b8fAe813De"; // tvoj deploy na Sepolia
+// ====== Domain Registry (cijene, kupovina, hosting, receiver) ======
+const REGISTRY_ADDRESS = "0x286A49eF10bA8577833f4f8967F8c6b8fAe813De"; // Sepolia
+
 const DOMAIN_ABI = [
+  // osnovno
   "function calculatePrice(string name) view returns (uint256)",
-  "function registerDomain(string name)"
+  "function registerDomain(string name)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function nameToId(string name) view returns (uint256)",
+  "function tokenIdOf(string name) view returns (uint256)",
+  "function domains(uint256) view returns (tuple(string name,uint256 cost,uint64 expiresAt,string ipfsHash,string siteCID,string siteURL,uint32 storageLimit,uint32 usedStorage,address receiver))",
+  // hosting
+  "function setSiteCID(uint256 id, string cid)",
+  "function setSiteURL(uint256 id, string url)",
+  "function getSiteCID(string name) view returns (string)",
+  "function getSiteURL(string name) view returns (string)",
+  // receiver
+  "function setReceiver(uint256 id, address receiver)",
+  "function getReceiver(string name) view returns (address)"
 ];
-const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com"; // read-only fallback RPC
 
-let registryRO; // read-only (za cijenu)
-let registry;   // write (za kupovinu)
-
-// ====== PRP ABI (dodate approve/allowance) ======
+// ====== PRP ABI (approve/allowance/buy/transfer) ======
 const TOKEN_ABI = [
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},
   {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"address","name":"_to","type":"address"},{"internalType":"uint256","name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"tokenPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"buyTokens","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"payable","type":"function"},
   {"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
+  {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"tokenPrice","outputs":[{"internalType":"uint256","name":"priceWei","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"buyTokens","outputs":[{"internalType":"bool","name":"success","type":"bool"}],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"_to","type":"address"},{"internalType":"uint256","name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
 ];
+
+const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
 
 // ====================== STATE ======================
 let provider, signer, prp, userAddress;
-let tokenPriceEth = 0;
-let prpDecimals = 18;
+let registryRO, registry;            // read-only i write
+let tokenPriceEth = 0, prpDecimals = 18;
+let hasDomainAccess = false;
+let currentDomainId = null;          // tokenId domena koji user posjeduje
+let currentDomainName = "";          // opciono (ako pročitamo)
 
 // ====================== HELPERS ======================
 const $ = (id) => document.getElementById(id);
-
-function debounce(fn, ms = 300) {
-  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-
-function getReadProvider() {
-  return provider || new ethers.providers.JsonRpcProvider(PUBLIC_SEPOLIA_RPC);
-}
+const isAddr = (v) => { try { return ethers.utils.isAddress(v); } catch { return false; } };
+const getReadProvider = () => provider || new ethers.providers.JsonRpcProvider(PUBLIC_SEPOLIA_RPC);
 function ensureRegistries() {
   if (!registryRO) registryRO = new ethers.Contract(REGISTRY_ADDRESS, DOMAIN_ABI, getReadProvider());
   if (signer && !registry) registry = new ethers.Contract(REGISTRY_ADDRESS, DOMAIN_ABI, signer);
 }
 
 // ====================== DOM REFS ======================
+// PRP buy/transfer
 const buyPRPInput = $("buy-amount");
 const buyETHInput = $("buy-eth");
 const walletAddrEl = $("wallet-address");
@@ -65,7 +76,7 @@ const tabIndicator = $("tabIndicator");
 const glassCard    = document.querySelector(".glass-card");
 const card3d       = $("flipCard");
 
-// Back-side panels (isti flip; biramo koji se prikazuje)
+// Back panels
 const backDomain   = $("back-domain");
 const backHost     = $("back-host");
 
@@ -88,10 +99,78 @@ const pinataProgDiv     = document.querySelector(".upload-progress.pinata");
 const pinataProgBar     = pinataProgDiv?.querySelector("progress");
 const pinataStatusText  = pinataProgDiv?.querySelector(".status");
 
-// NOVO: liste pinova
+// Pinata lista
 const pinListEl      = document.getElementById("pinList");
 const btnRefreshPins = document.getElementById("btnRefreshPins");
 const pinFilterInput = document.getElementById("pinFilter");
+
+// ====================== HOST TAB GATING & OTKRIVANJE NFT-A ======================
+function toggleHostTab(enabled) {
+  if (!tabHost) return;
+  hasDomainAccess = !!enabled;
+  tabHost.style.display = enabled ? "" : "none";
+  if (!enabled && tabHost.classList.contains("active")) activateTab("domain");
+  positionIndicator();
+  setTimeout(equalizeCardHeight, 50);
+}
+
+const MAX_ID_CAP = 20000;
+const MISS_STREAK_STOP = 1000;
+
+async function findOwnedTokenIdByScan(ownerAddr) {
+  ensureRegistries();
+  const target = (ownerAddr || "").toLowerCase();
+  if (!target) return null;
+
+  let miss = 0;
+  for (let id = 1; id <= MAX_ID_CAP; id++) {
+    try {
+      const o = await registryRO.ownerOf(id);
+      if ((o || "").toLowerCase() === target) return id;
+      miss = 0;
+    } catch {
+      miss++;
+      if (miss >= MISS_STREAK_STOP) break;
+    }
+  }
+  return null;
+}
+
+async function resolveCurrentDomainForUser() {
+  currentDomainId = null;
+  currentDomainName = "";
+  if (!userAddress) return;
+
+  try {
+    ensureRegistries();
+    const cnt = await (registry || registryRO).balanceOf(userAddress);
+    toggleHostTab(cnt.gt(0));
+    if (!cnt.gt(0)) return;
+
+    currentDomainId = await findOwnedTokenIdByScan(userAddress);
+    if (!currentDomainId) return;
+
+    try {
+      const d = await registryRO.domains(currentDomainId);
+      if (d && d.name) currentDomainName = (d.name || "").toLowerCase();
+    } catch {}
+  } catch (e) {
+    console.warn("resolveCurrentDomainForUser error:", e);
+  }
+}
+
+async function updateHostAccess() {
+  try {
+    ensureRegistries();
+    if (!userAddress) { toggleHostTab(false); return; }
+    const cnt = await (registry || registryRO).balanceOf(userAddress);
+    toggleHostTab(cnt.gt(0));
+    if (cnt.gt(0)) await resolveCurrentDomainForUser();
+  } catch (e) {
+    console.warn("balanceOf check failed:", e);
+    toggleHostTab(false);
+  }
+}
 
 // ====================== WALLET ======================
 async function connectWallet() {
@@ -103,15 +182,15 @@ async function connectWallet() {
     userAddress = await signer.getAddress();
     prp         = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
 
-    if (walletAddrEl) walletAddrEl.innerText = "Wallet: " + userAddress;
+    walletAddrEl && (walletAddrEl.innerText = "Wallet: " + userAddress);
 
     prpDecimals = Number(await prp.decimals());
     await loadBalance();
     await loadTokenPrice();
     await addTokenToMetaMaskOnce(userAddress);
 
-    // pripremi write registry
     ensureRegistries();
+    await updateHostAccess();
 
     if (window.ethereum?.on) {
       window.ethereum.on("accountsChanged", async () => {
@@ -120,11 +199,10 @@ async function connectWallet() {
         userAddress = await signer.getAddress();
         prp         = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         prpDecimals = Number(await prp.decimals());
-        if (walletAddrEl) walletAddrEl.innerText = "Wallet: " + userAddress;
+        walletAddrEl && (walletAddrEl.innerText = "Wallet: " + userAddress);
         await addTokenToMetaMaskOnce(userAddress);
         await loadBalance();
-        registry = null; // reset pa ponovo
-        ensureRegistries();
+        registry = null; ensureRegistries(); await updateHostAccess();
       });
       window.ethereum.on("chainChanged", async () => {
         provider    = new ethers.providers.Web3Provider(window.ethereum);
@@ -132,8 +210,7 @@ async function connectWallet() {
         prp         = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         prpDecimals = Number(await prp.decimals());
         await loadBalance();
-        registry = null;
-        ensureRegistries();
+        registry = null; ensureRegistries(); await updateHostAccess();
       });
     }
 
@@ -153,10 +230,7 @@ async function addTokenToMetaMaskOnce(account) {
 
     const wasAdded = await window.ethereum.request({
       method: "wallet_watchAsset",
-      params: {
-        type: "ERC20",
-        options: { address: TOKEN_ADDRESS, symbol: TOKEN_SYMBOL, decimals: prpDecimals, image: TOKEN_IMAGE_URL }
-      }
+      params: { type: "ERC20", options: { address: TOKEN_ADDRESS, symbol: TOKEN_SYMBOL, decimals: prpDecimals, image: TOKEN_IMAGE_URL } }
     });
 
     if (wasAdded) {
@@ -166,22 +240,17 @@ async function addTokenToMetaMaskOnce(account) {
   } catch (e) { console.error("wallet_watchAsset error:", e); }
 }
 
-// ====================== TOKEN FUNKCIJE ======================
+// ====================== TOKEN: balance/buy/transfer ======================
 async function loadBalance() {
   if (!prp || !userAddress || !tokenBalEl) return;
   const bal = await prp.balanceOf(userAddress);
-  const formatted = ethers.utils.formatUnits(bal, prpDecimals);
-  tokenBalEl.innerText = `Balance: ${formatted} PRP`;
+  tokenBalEl.innerText = `Balance: ${ethers.utils.formatUnits(bal, prpDecimals)} PRP`;
 }
-
 async function loadTokenPrice() {
   if (!prp) return;
-  try {
-    const priceWei = await prp.tokenPrice();
-    tokenPriceEth = parseFloat(ethers.utils.formatEther(priceWei));
-  } catch { tokenPriceEth = 0; }
+  try { tokenPriceEth = parseFloat(ethers.utils.formatEther(await prp.tokenPrice())); }
+  catch { tokenPriceEth = 0; }
 }
-
 async function buyTokens(e) {
   e?.preventDefault?.();
   if (!signer || !userAddress) return alert("Connect wallet prvo.");
@@ -196,17 +265,42 @@ async function buyTokens(e) {
   } catch (err) { console.error(err); alert("Buy failed"); }
 }
 
+// --- transfer PRP sa podrškom za domen kao primaoca ---
+async function resolveDomainToAddress(domainName) {
+  ensureRegistries();
+  const nm = (domainName || "").trim().toLowerCase();
+  if (!nm) throw new Error("Prazan domen.");
+  let recv;
+  try { recv = await registryRO.getReceiver(nm); } catch {}
+  if (!recv || recv === ethers.constants.AddressZero) {
+    const id = await registryRO.tokenIdOf(nm);
+    if (!id || id.eq(0)) throw new Error("Domen ne postoji.");
+    recv = await registryRO.ownerOf(id);
+  }
+  if (!isAddr(recv)) throw new Error("Nevalidan primaoc.");
+  return recv;
+}
+
 async function transferTokens(e) {
   e?.preventDefault?.();
   if (!prp || !userAddress) return alert("Connect wallet prvo.");
-  const recipient = $("recipient")?.value?.trim();
-  const amountStr = $("amount")?.value?.trim();
-  if (!recipient || !amountStr) return alert("Unesi adresu i iznos.");
+
+  const recipientRaw = $("recipient")?.value?.trim();
+  const amountStr    = $("amount")?.value?.trim();
+  if (!recipientRaw || !amountStr) return alert("Unesi primaoca i iznos.");
+
+  let toAddress = null;
+  if (isAddr(recipientRaw)) toAddress = recipientRaw;
+  else {
+    try { toAddress = await resolveDomainToAddress(recipientRaw); }
+    catch (err) { console.error(err); return alert("Primaoc nije adresa niti validan domen."); }
+  }
+
   const parsedAmount = ethers.utils.parseUnits(amountStr, prpDecimals);
   try {
-    const tx = await prp.transfer(recipient, parsedAmount);
+    const tx = await prp.transfer(toAddress, parsedAmount);
     await tx.wait();
-    alert(`Poslano ${amountStr} PRP na ${recipient}`);
+    alert(`Poslano ${amountStr} PRP na ${toAddress}`);
     loadBalance();
   } catch (err) { console.error(err); alert("Transfer failed"); }
 }
@@ -227,10 +321,8 @@ function listenTransfers() {
 // ====================== DOMAIN: cijena + kupovina ======================
 async function fetchDomainPrice(name) {
   ensureRegistries();
-  const raw = await registryRO.calculatePrice(name);
-  return raw; // BigNumber
+  return await registryRO.calculatePrice(name);
 }
-
 async function onCheckPriceClick() {
   if (!domainNameInput || !domainPriceInput) return;
   const name = (domainNameInput.value || "").trim().toLowerCase();
@@ -250,7 +342,7 @@ async function onCheckPriceClick() {
   }
 }
 
-async function buyDomainFlow(e){
+async function buyDomainFlow(e) {
   e?.preventDefault?.();
   if (!signer || !userAddress) return alert("Poveži wallet.");
   if (!prp) return alert("PRP contract nije spreman.");
@@ -264,7 +356,7 @@ async function buyDomainFlow(e){
     // 1) cijena
     const rawPrice = await registryRO.calculatePrice(name);
 
-    // 2) approve PRP (ako treba)
+    // 2) approve PRP
     const allowance = await prp.allowance(userAddress, REGISTRY_ADDRESS);
     if (allowance.lt(rawPrice)) {
       const txA = await prp.approve(REGISTRY_ADDRESS, rawPrice);
@@ -279,8 +371,22 @@ async function buyDomainFlow(e){
     await tx.wait();
     alert(`Kupljen domen: ${name}`);
 
-    // upiši cijenu ako polje postoji
+    // 4) post-setup: osiguraj receiver = owner (safety)
+    try {
+      const id = await registryRO.tokenIdOf(name);
+      const owner = await registryRO.ownerOf(id);
+      const d = await registryRO.domains(id);
+      if (!d?.receiver || d.receiver === ethers.constants.AddressZero || d.receiver.toLowerCase() !== owner.toLowerCase()) {
+        await (await registry.setReceiver(id, owner)).wait();
+      }
+      // zapamti kao aktivni domen
+      currentDomainId = id.toNumber ? id.toNumber() : Number(id);
+      currentDomainName = name;
+    } catch (e2) { console.warn("setReceiver post-setup skip:", e2?.message || e2); }
+
+    await updateHostAccess();
     if (domainPriceInput) domainPriceInput.value = `${ethers.utils.formatEther(rawPrice)} PRP`;
+
   } catch (err) {
     console.error(err);
     alert("Kupovina nije uspjela (provjeri PRP balans/allowance i mrežu).");
@@ -290,7 +396,40 @@ async function buyDomainFlow(e){
   }
 }
 
-// ====================== PINATA UPLOAD (enforce single root + auto URL) ======================
+// ====================== ON-CHAIN UPDATE POSLIJE UPLOAD-A ======================
+async function updateDomainOnChainById(cid, webUrl) {
+  if (!signer || !userAddress) { alert("Poveži wallet."); return; }
+  if (!currentDomainId) await resolveCurrentDomainForUser();
+  const id = currentDomainId;
+  if (!id) return alert("Nije pronađen domen (tokenId) za ovaj wallet.");
+
+  ensureRegistries();
+  try {
+    const owner = await (registry || registryRO).ownerOf(id);
+    if (owner.toLowerCase() !== userAddress.toLowerCase()) return alert("Nisi vlasnik ovog domena.");
+
+    // upiši CID + URL
+    if (registry?.functions?.setSiteCID)  { const tx = await registry.setSiteCID(id, cid || "");  await tx.wait(); }
+    if (registry?.functions?.setSiteURL)  { const tx = await registry.setSiteURL(id, webUrl || ""); await tx.wait(); }
+
+    alert(cid ? "Sajt povezan sa domenom ✅" : "Sajt uklonjen sa domena ✅");
+  } catch (e) {
+    console.error("updateDomainOnChainById error:", e);
+    alert("Nije uspjelo upisivanje/brisanje CID/URL na domen.");
+  }
+}
+
+async function getCurrentDomainCid() {
+  ensureRegistries();
+  if (!currentDomainId) await resolveCurrentDomainForUser();
+  if (!currentDomainId) return "";
+  try {
+    const d = await (registry || registryRO).domains(currentDomainId);
+    return d?.siteCID || d?.ipfsHash || "";
+  } catch { return ""; }
+}
+
+// ====================== PINATA UPLOAD ======================
 function bindPinataUpload() {
   if (!pinataForm || !pinataFolder) return;
 
@@ -303,7 +442,7 @@ function bindPinataUpload() {
     return allSame ? (first + "/") : "";
   };
 
-  // samo prikaz liste
+  // lista fajlova
   pinataFolder.addEventListener("change", () => {
     if (!pinataFiles) return;
     pinataFiles.innerHTML = "";
@@ -322,20 +461,21 @@ function bindPinataUpload() {
 
     const files = Array.from(pinataFolder.files);
     if (!files.length) return alert("Izaberi folder sa fajlovima.");
-    if (!PINATA_JWT || PINATA_JWT.startsWith("PASTE_")) {
-      return alert("Dodaj PINATA_JWT u app.js (Scoped JWT sa pinFileToIPFS).");
-    }
+    if (!PINATA_JWT || PINATA_JWT.startsWith("PASTE_")) return alert("Dodaj PINATA_JWT u app.js.");
 
-    // 1) Osiguraj JEDAN root: stvarni top-folder ili virtuelni "site/"
-    const realTop = getTopFolderPrefix(files);        // npr. "mojSajt/"
-    const rootDir = (realTop ? realTop.replace(/\/$/, "") : "site"); // ime bez "/"
+    const ownerAddr = (userAddress || "").toLowerCase();
+    if (!ownerAddr) return alert("Poveži wallet prije uploada.");
 
-    // 2) Provjera da index.html postoji UNUTAR root-a
+    if (!currentDomainId) await resolveCurrentDomainForUser();
+    if (!currentDomainId) return alert("Nije pronađen domen za ovaj wallet.");
+
+    // root folder + index.html validacija
+    const realTop = getTopFolderPrefix(files);                     // npr. "mojSajt/"
+    const rootDir = (realTop ? realTop.replace(/\/$/, "") : "site");
     const hasIndex = files.some(f => {
       const p = (f.webkitRelativePath || f.name).toLowerCase();
-      return realTop
-        ? p === (realTop + "index.html").toLowerCase() || p.endsWith("/index.html")
-        : p.endsWith("index.html"); // dodaćemo "site/" ispod
+      return realTop ? p === (realTop + "index.html").toLowerCase() || p.endsWith("/index.html")
+                     : p.endsWith("index.html");
     });
     if (!hasIndex) return alert("Folder mora sadržati index.html u root-u projekta.");
 
@@ -349,14 +489,21 @@ function bindPinataUpload() {
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const metaName = `site-${ts}`;
 
+      // Ako nema pravog top foldera, virtualizuj ga pod "site/"
       files.forEach(file => {
         const original = file.webkitRelativePath || file.name;
-        // Ako nema zajedničkog top-foldera, nametni virtuelni "site/"
         const filename = realTop ? original : `${rootDir}/${original}`;
         fd.append("file", file, filename);
       });
 
-      fd.append("pinataMetadata", JSON.stringify({ name: metaName }));
+      fd.append("pinataMetadata", JSON.stringify({
+        name: metaName,
+        keyvalues: {
+          owner: ownerAddr,
+          tokenId: String(currentDomainId),
+          ...(currentDomainName ? { domain: currentDomainName } : {})
+        }
+      }));
       fd.append("pinataOptions", JSON.stringify({ cidVersion: 1 }));
 
       const xhr = new XMLHttpRequest();
@@ -378,19 +525,19 @@ function bindPinataUpload() {
             const cid = data.IpfsHash;
             pinataCidEl.textContent = cid;
 
-            // AUTOMATSKI uključi rootDir u URL da odmah otvara index.html
-            const rootPath = encodeURIComponent(rootDir);
-            const ipfsUrl  = `https://ipfs.io/ipfs/${cid}/${rootPath}/`;
-            const dwebUrl  = `https://${cid}.ipfs.dweb.link/${rootPath}/`;
+            const rootPath       = encodeURIComponent(rootDir);
+            const ipfsUrl        = `https://ipfs.io/ipfs/${cid}`;
+            const ipfsUrlRooted  = `https://ipfs.io/ipfs/${cid}/${rootPath}/`;
+            const dwebUrl        = `https://${cid}.ipfs.dweb.link/${rootPath}/`;
 
             pinataUrlEl.href = ipfsUrl;
             pinataUrlEl.textContent = ipfsUrl;
-            if (pinataUrlDwebEl) {
-              pinataUrlDwebEl.href = dwebUrl;
-              pinataUrlDwebEl.textContent = dwebUrl;
-            }
+            if (pinataUrlDwebEl) { pinataUrlDwebEl.href = dwebUrl; pinataUrlDwebEl.textContent = dwebUrl; }
             pinataResult.style.display = "block";
             pinataStatusText.textContent = "Done.";
+
+            // upiši na NFT (CID + URL)
+            updateDomainOnChainById(cid, ipfsUrlRooted);
           } else {
             console.error("Pinata response:", xhr.status, xhr.responseText);
             alert(`Pinata upload failed (${xhr.status}): ${xhr.responseText}`);
@@ -411,7 +558,6 @@ function bindPinataUpload() {
       };
 
       xhr.send(fd);
-
     } catch (err) {
       console.error(err);
       alert(`Greška: ${err.message}`);
@@ -421,8 +567,9 @@ function bindPinataUpload() {
   });
 }
 
-// ====================== Pinata list & delete ======================
+// ====================== Pinata list & delete (filter: owner + tokenId) ======================
 async function pinataList({ query = "", limit = 50, offset = 0 } = {}) {
+  if (!userAddress) throw new Error("Connect wallet prvo.");
   const params = new URLSearchParams({
     status: "pinned",
     pageLimit: String(limit),
@@ -430,6 +577,8 @@ async function pinataList({ query = "", limit = 50, offset = 0 } = {}) {
     sort: "date_pinned",
     dir: "desc"
   });
+  params.set("metadata[keyvalues][owner]", JSON.stringify({ value: userAddress.toLowerCase(), op: "eq" }));
+  if (currentDomainId) params.set("metadata[keyvalues][tokenId]", JSON.stringify({ value: String(currentDomainId), op: "eq" }));
   if (query) params.set("metadata[nameContains]", query);
 
   const res = await fetch(`https://api.pinata.cloud/data/pinList?${params.toString()}`, {
@@ -476,26 +625,22 @@ function renderPins(rows) {
 }
 
 async function refreshPins() {
-  if (!PINATA_JWT || PINATA_JWT.startsWith("PASTE_")) {
-    alert("PINATA_JWT nije postavljen.");
+  if (!PINATA_JWT || PINATA_JWT.startsWith("PASTE_")) { alert("PINATA_JWT nije postavljen."); return; }
+  if (!userAddress) {
+    if (pinListEl) pinListEl.innerHTML = "<li class='hint'>Connect wallet da vidiš svoje fajlove.</li>";
     return;
   }
-  const q = (pinFilterInput?.value || "").trim();
+  if (!currentDomainId) await resolveCurrentDomainForUser();
   try {
+    const q = (pinFilterInput?.value || "").trim();
     const rows = await pinataList({ query: q, limit: 50, offset: 0 });
-    const filtered = q ? rows.filter(r => {
-      const cid  = r.ipfs_pin_hash || r.IpfsHash || "";
-      const name = (r.metadata && r.metadata.name) ? r.metadata.name : "";
-      return cid.includes(q) || name.toLowerCase().includes(q.toLowerCase());
-    }) : rows;
-    renderPins(filtered);
+    renderPins(rows);
   } catch (e) {
     console.error(e);
     alert("Ne mogu da učitam listu sa Pinata-e.");
   }
 }
 
-// klikovi na listi (Delete)
 pinListEl?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
@@ -505,6 +650,12 @@ pinListEl?.addEventListener("click", async (e) => {
     if (!confirm(`Unpin ${cid}?`)) return;
     try {
       await pinataUnpin(cid);
+      try {
+        const curCid = await getCurrentDomainCid();
+        if (curCid && curCid.toLowerCase() === cid.toLowerCase()) {
+          await updateDomainOnChainById("", ""); // ukloni linkove sa NFT-a
+        }
+      } catch (e2) { console.warn("Cleanup on-chain failed:", e2); }
       await refreshPins();
     } catch (err) {
       console.error(err);
@@ -512,10 +663,9 @@ pinListEl?.addEventListener("click", async (e) => {
     }
   }
 });
-
 btnRefreshPins?.addEventListener("click", refreshPins);
 
-// ====================== FLIP TABS (isti flip za 3 taba) ======================
+// ====================== FLIP TABS ======================
 function positionIndicator() {
   if (!tabsWrap || !tabIndicator) return;
   const active = document.querySelector(".card-tab.active");
@@ -526,12 +676,10 @@ function positionIndicator() {
   tabIndicator.style.width = btnRect.width + "px";
   tabIndicator.style.transform = `translateX(${dx}px)`;
 }
-
 function showBackPanel(whichBack) {
   if (backDomain) backDomain.style.display = (whichBack === "domain" ? "block" : "none");
   if (backHost)   backHost.style.display   = (whichBack === "host"   ? "block" : "none");
 }
-
 function equalizeCardHeight() {
   const front = document.querySelector(".card-front");
   const hFront = front ? front.scrollHeight : 0;
@@ -540,9 +688,8 @@ function equalizeCardHeight() {
   const maxH = Math.max(hFront, hBackDomain, hBackHost, 420);
   if (card3d) card3d.style.height = maxH + "px";
 }
-
 function activateTab(which) {
-  [tabPerper, tabDomain, tabHost].forEach(b => b.classList.remove("active"));
+  [tabPerper, tabDomain, tabHost].forEach(b => b && b.classList.remove("active"));
   if (which === "perper") {
     tabPerper?.classList.add("active");
     glassCard?.classList.remove("is-domain");
@@ -551,11 +698,14 @@ function activateTab(which) {
     showBackPanel("domain");
     glassCard?.classList.add("is-domain");
   } else if (which === "host") {
+    if (!hasDomainAccess) return;
     tabHost?.classList.add("active");
     showBackPanel("host");
     glassCard?.classList.add("is-domain");
-    // učitaj moju listu pinova kad otvorim Host tab
-    setTimeout(refreshPins, 150);
+    (async () => {
+      if (!currentDomainId) await resolveCurrentDomainForUser();
+      setTimeout(refreshPins, 150);
+    })();
   }
   positionIndicator();
   setTimeout(equalizeCardHeight, 50);
@@ -563,7 +713,9 @@ function activateTab(which) {
 
 // ====================== INIT ======================
 function bindUI() {
-  // PRP <-> ETH
+  if (tabHost) tabHost.style.display = "none";
+
+  // PRP <-> ETH kalkulacija
   buyPRPInput?.addEventListener("input", () => {
     const prpAmount = parseFloat(buyPRPInput.value) || 0;
     if (tokenPriceEth > 0 && buyETHInput) buyETHInput.value = (prpAmount * tokenPriceEth).toFixed(6);
@@ -573,24 +725,17 @@ function bindUI() {
     if (tokenPriceEth > 0 && buyPRPInput) buyPRPInput.value = (ethAmount / tokenPriceEth).toFixed(2);
   });
 
-  // forme
   $("buy-form")?.addEventListener("submit", buyTokens);
   $("transfer-form")?.addEventListener("submit", transferTokens);
 
-  // gornji tabovi
   tabPerper?.addEventListener("click", () => activateTab("perper"));
-  tabDomain?.addEventListener("click", () => {
-    activateTab("domain");
-    setTimeout(() => ensureRegistries(), 100);
-  });
+  tabDomain?.addEventListener("click", () => { activateTab("domain"); setTimeout(() => ensureRegistries(), 100); });
   tabHost  ?.addEventListener("click", () => activateTab("host"));
   window.addEventListener("resize", () => setTimeout(equalizeCardHeight, 50));
 
-  // Domain actions
   btnCheckPrice?.addEventListener("click", onCheckPriceClick);
   domainForm?.addEventListener("submit", buyDomainFlow);
 
-  // Pinata upload
   bindPinataUpload();
 }
 
