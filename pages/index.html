@@ -83,7 +83,7 @@
                 <label>Recipient:</label>
                 <input type="text" id="recipient" placeholder="0x..."/>
                 <label>Amount (PPR):</label>
-                <input type="number" id="amount" placeholder="Enter amount"/>
+                <input type="number" id="amount" step="any" placeholder="Enter amount"/>
                 <button type="submit">Send</button>
               </form>
             </div>
@@ -128,6 +128,7 @@
 
           <!-- HOST BACK PANEL (PINATA) -->
           <div id="back-host" class="back-panel" style="display:none;">
+            <select onchange="showUploadForm()" id="domainSelect"></select>
             <h2>Host Your Website (IPFS via Pinata)</h2>
             <form id="pinata-form">
               <label>Select website folder (must include index.html)</label>
