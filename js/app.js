@@ -42,6 +42,7 @@ const TOKEN_ABI = [
 ];
 
 const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
+const SEPOLIA_CHAIN_ID = 11155111;
 
 // ====================== STATE ======================
 let provider, signer, prp, userAddress;
@@ -58,6 +59,24 @@ const getReadProvider = () => provider || new ethers.providers.JsonRpcProvider(P
 function ensureRegistries() {
   if (!registryRO) registryRO = new ethers.Contract(REGISTRY_ADDRESS, DOMAIN_ABI, getReadProvider());
   if (signer && !registry) registry = new ethers.Contract(REGISTRY_ADDRESS, DOMAIN_ABI, signer);
+}
+
+async function ensureWalletOnSepolia() {
+  if (!window.ethereum) return; // ako nema MM, preskoči — RO ide preko PUBLIC_SEPOLIA_RPC
+  if (!provider) {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+  }
+  try {
+    const net = await provider.getNetwork();
+    if (net.chainId !== SEPOLIA_CHAIN_ID) {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0xaa36a7" }] // 11155111
+      });
+    }
+  } catch (e) { /* user može odbiti; pisanje će fail-ati i pokazati alert */ }
+  ensureRegistries();
 }
 
 // ====================== DOM REFS ======================
@@ -166,9 +185,71 @@ async function updateHostAccess() {
     const cnt = await (registry || registryRO).balanceOf(userAddress);
     toggleHostTab(cnt.gt(0));
     if (cnt.gt(0)) await resolveCurrentDomainForUser();
+    await updateUploadFormVisibility(); // sync upload UI odmah
   } catch (e) {
     console.warn("balanceOf check failed:", e);
     toggleHostTab(false);
+  }
+}
+
+// ============= UTIL: čitanje on-chain stanja sajta i kontrola upload forme ============
+async function readCurrentOnChainSite() {
+  ensureRegistries();
+  if (!currentDomainId) await resolveCurrentDomainForUser();
+  if (!currentDomainId) return { cid: "", url: "" };
+  try {
+    const d = await (registry || registryRO).domains(currentDomainId);
+    const cid = (d?.siteCID || d?.ipfsHash || "").trim();
+    const url = (d?.siteURL || "").trim();
+    return { cid, url };
+  } catch {
+    return { cid: "", url: "" };
+  }
+}
+
+function showUploadForm() {
+  if (pinataForm) pinataForm.style.display = "";
+  // sekcija "Selected Files" (ako postoji wrapper)
+  if (pinataFiles) {
+    const box = pinataFiles.closest(".selected-files") || pinataFiles.parentElement?.parentElement;
+    if (box) box.style.display = "";
+  }
+  if (pinataResult) {
+    pinataResult.style.display = "none";
+    if (pinataCidEl) pinataCidEl.textContent = "";
+    if (pinataUrlEl) { pinataUrlEl.href = "#"; pinataUrlEl.textContent = "open via ipfs.io"; }
+    if (pinataUrlDwebEl) { pinataUrlDwebEl.href = "#"; pinataUrlDwebEl.textContent = "dweb.link"; }
+  }
+}
+
+function showCurrentSite(cid, url) {
+  if (pinataForm) pinataForm.style.display = "none";
+  if (pinataFiles) {
+    const box = pinataFiles.closest(".selected-files") || pinataFiles.parentElement?.parentElement;
+    if (box) box.style.display = "none";
+  }
+  if (pinataResult) {
+    pinataResult.style.display = "block";
+    if (pinataCidEl) pinataCidEl.textContent = cid || "(no CID)";
+    const u = url || (cid ? `https://ipfs.io/ipfs/${cid}/` : "#");
+    if (pinataUrlEl) { pinataUrlEl.href = u; pinataUrlEl.textContent = u; }
+    if (pinataUrlDwebEl) {
+      const dweb = cid ? `https://${cid}.ipfs.dweb.link/` : "#";
+      pinataUrlDwebEl.href = dweb;
+      pinataUrlDwebEl.textContent = dweb;
+    }
+  }
+}
+
+async function updateUploadFormVisibility() {
+  try {
+    if (!hasDomainAccess) { showUploadForm(); return; }
+    const { cid, url } = await readCurrentOnChainSite();
+    if (cid || url) showCurrentSite(cid, url);
+    else showUploadForm();
+    setTimeout(equalizeCardHeight, 50);
+  } catch (e) {
+    console.warn("updateUploadFormVisibility:", e);
   }
 }
 
@@ -396,8 +477,9 @@ async function buyDomainFlow(e) {
   }
 }
 
-// ====================== ON-CHAIN UPDATE POSLIJE UPLOAD-A ======================
+// ====================== ON-CHAIN UPDATE POSLIJE UPLOAD-A / DELETE-A ======================
 async function updateDomainOnChainById(cid, webUrl) {
+  await ensureWalletOnSepolia(); // pokuša prebaciti na Sepoliu ako treba
   if (!signer || !userAddress) { alert("Poveži wallet."); return; }
   if (!currentDomainId) await resolveCurrentDomainForUser();
   const id = currentDomainId;
@@ -408,9 +490,14 @@ async function updateDomainOnChainById(cid, webUrl) {
     const owner = await (registry || registryRO).ownerOf(id);
     if (owner.toLowerCase() !== userAddress.toLowerCase()) return alert("Nisi vlasnik ovog domena.");
 
-    // upiši CID + URL
-    if (registry?.functions?.setSiteCID)  { const tx = await registry.setSiteCID(id, cid || "");  await tx.wait(); }
-    if (registry?.functions?.setSiteURL)  { const tx = await registry.setSiteURL(id, webUrl || ""); await tx.wait(); }
+    // upiši CID + URL (prazan string = brisanje)
+    const tx1 = await registry.setSiteCID(id, cid || "");
+    await tx1.wait();
+    const tx2 = await registry.setSiteURL(id, webUrl || "");
+    await tx2.wait();
+
+    // osvježi UI vidljivost forme
+    await updateUploadFormVisibility();
 
     alert(cid ? "Sajt povezan sa domenom ✅" : "Sajt uklonjen sa domena ✅");
   } catch (e) {
@@ -420,13 +507,8 @@ async function updateDomainOnChainById(cid, webUrl) {
 }
 
 async function getCurrentDomainCid() {
-  ensureRegistries();
-  if (!currentDomainId) await resolveCurrentDomainForUser();
-  if (!currentDomainId) return "";
-  try {
-    const d = await (registry || registryRO).domains(currentDomainId);
-    return d?.siteCID || d?.ipfsHash || "";
-  } catch { return ""; }
+  const { cid } = await readCurrentOnChainSite();
+  return cid;
 }
 
 // ====================== PINATA UPLOAD ======================
@@ -480,10 +562,10 @@ function bindPinataUpload() {
     if (!hasIndex) return alert("Folder mora sadržati index.html u root-u projekta.");
 
     try {
-      pinataProgDiv.style.display = "block";
-      pinataProgBar.value = 0;
-      pinataStatusText.textContent = "Preparing form data...";
-      pinataBtn.disabled = true;
+      if (pinataProgDiv) pinataProgDiv.style.display = "block";
+      if (pinataProgBar) pinataProgBar.value = 0;
+      if (pinataStatusText) pinataStatusText.textContent = "Preparing form data...";
+      if (pinataBtn) pinataBtn.disabled = true;
 
       const fd = new FormData();
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -511,7 +593,7 @@ function bindPinataUpload() {
       xhr.setRequestHeader("Authorization", `Bearer ${PINATA_JWT}`);
 
       xhr.upload.onprogress = (evt) => {
-        if (evt.lengthComputable) {
+        if (evt.lengthComputable && pinataProgBar && pinataStatusText) {
           const pct = Math.round((evt.loaded / evt.total) * 100);
           pinataProgBar.value = pct;
           pinataStatusText.textContent = `Uploading... ${pct}%`;
@@ -523,20 +605,19 @@ function bindPinataUpload() {
           if (xhr.status >= 200 && xhr.status < 300) {
             const data = JSON.parse(xhr.responseText);
             const cid = data.IpfsHash;
-            pinataCidEl.textContent = cid;
+            if (pinataCidEl) pinataCidEl.textContent = cid;
 
             const rootPath       = encodeURIComponent(rootDir);
             const ipfsUrl        = `https://ipfs.io/ipfs/${cid}`;
             const ipfsUrlRooted  = `https://ipfs.io/ipfs/${cid}/${rootPath}/`;
             const dwebUrl        = `https://${cid}.ipfs.dweb.link/${rootPath}/`;
 
-            pinataUrlEl.href = ipfsUrl;
-            pinataUrlEl.textContent = ipfsUrl;
+            if (pinataUrlEl) { pinataUrlEl.href = ipfsUrl; pinataUrlEl.textContent = ipfsUrl; }
             if (pinataUrlDwebEl) { pinataUrlDwebEl.href = dwebUrl; pinataUrlDwebEl.textContent = dwebUrl; }
-            pinataResult.style.display = "block";
-            pinataStatusText.textContent = "Done.";
+            if (pinataResult) pinataResult.style.display = "block";
+            if (pinataStatusText) pinataStatusText.textContent = "Done.";
 
-            // upiši na NFT (CID + URL)
+            // upiši na NFT (CID + URL) i sakrij formu
             updateDomainOnChainById(cid, ipfsUrlRooted);
           } else {
             console.error("Pinata response:", xhr.status, xhr.responseText);
@@ -546,23 +627,23 @@ function bindPinataUpload() {
           console.error(err);
           alert("Invalid response from Pinata API.");
         } finally {
-          pinataProgDiv.style.display = "none";
-          pinataBtn.disabled = false;
+          if (pinataProgDiv) pinataProgDiv.style.display = "none";
+          if (pinataBtn) pinataBtn.disabled = false;
         }
       };
 
       xhr.onerror = () => {
         alert("Network/Pinata error.");
-        pinataProgDiv.style.display = "none";
-        pinataBtn.disabled = false;
+        if (pinataProgDiv) pinataProgDiv.style.display = "none";
+        if (pinataBtn) pinataBtn.disabled = false;
       };
 
       xhr.send(fd);
     } catch (err) {
       console.error(err);
       alert(`Greška: ${err.message}`);
-      pinataProgDiv.style.display = "none";
-      pinataBtn.disabled = false;
+      if (pinataProgDiv) pinataProgDiv.style.display = "none";
+      if (pinataBtn) pinataBtn.disabled = false;
     }
   });
 }
@@ -644,23 +725,32 @@ async function refreshPins() {
 pinListEl?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
-  if (btn.classList.contains("btnDel")) {
-    const cid = btn.dataset.cid;
-    if (!cid) return;
-    if (!confirm(`Unpin ${cid}?`)) return;
+  if (!btn.classList.contains("btnDel")) return;
+
+  const cid = btn.dataset.cid;
+  if (!cid) return;
+  if (!confirm(`Unpin ${cid}?`)) return;
+
+  try {
+    await pinataUnpin(cid);
+
+    // Ako brišemo baš aktivni sajt, očisti NFT i vrati formu
     try {
-      await pinataUnpin(cid);
-      try {
-        const curCid = await getCurrentDomainCid();
-        if (curCid && curCid.toLowerCase() === cid.toLowerCase()) {
-          await updateDomainOnChainById("", ""); // ukloni linkove sa NFT-a
-        }
-      } catch (e2) { console.warn("Cleanup on-chain failed:", e2); }
-      await refreshPins();
-    } catch (err) {
-      console.error(err);
-      alert("Delete failed.");
-    }
+      await ensureWalletOnSepolia();
+      if (!currentDomainId) await resolveCurrentDomainForUser();
+      const curCid = await getCurrentDomainCid();
+      if (curCid && curCid.toLowerCase() === cid.toLowerCase()) {
+        await updateDomainOnChainById("", ""); // ukloni linkove sa NFT-a
+      } else {
+        // ako nije aktivni, samo osvježi UI
+        await updateUploadFormVisibility();
+      }
+    } catch (e2) { console.warn("Cleanup on-chain failed:", e2); }
+
+    await refreshPins();
+  } catch (err) {
+    console.error(err);
+    alert("Delete failed.");
   }
 });
 btnRefreshPins?.addEventListener("click", refreshPins);
@@ -704,6 +794,7 @@ function activateTab(which) {
     glassCard?.classList.add("is-domain");
     (async () => {
       if (!currentDomainId) await resolveCurrentDomainForUser();
+      await updateUploadFormVisibility(); // prikaži/sakrij formu u zavisnosti od NFT-a
       setTimeout(refreshPins, 150);
     })();
   }
