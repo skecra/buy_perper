@@ -927,12 +927,8 @@ pinListEl?.addEventListener("click", async (e) => {
 
       // Ako brišemo baš aktivni sajt, očisti NFT i vrati formu
       try {
-        const curCid = await getCurrentDomainCid();
-        if (curCid && curCid.toLowerCase() === cid.toLowerCase()) {
-          await updateDomainOnChainById("", ""); // ukloni linkove sa NFT-a
-        } else {
-          await updateUploadFormVisibility();
-        }
+        await updateDomainOnChainById("", "");
+        await updateUploadFormVisibility();
       } catch (e2) { console.warn("Cleanup on-chain failed:", e2); }
 
       await refreshPins();
